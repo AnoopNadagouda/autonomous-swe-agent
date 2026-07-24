@@ -7,6 +7,18 @@ spring:
       api-key: ${GROQ_API_KEY}
       chat:
         options:
-          model: openai/gpt-oss-120b
+          model: llama-3.3-70b-versatile
+    mcp:
+      client:
+        enabled: true
+        type: sync
+        sse:
+          connections:
+            tools:
+              url: http://localhost:8081
+        streamable-http:
+          connections:
+            tools:
+              url: http://localhost:8081
 server:
   port: 8080

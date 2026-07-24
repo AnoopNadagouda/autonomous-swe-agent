@@ -2,5 +2,6 @@ package com.example.sweagent.dto;
 
 import java.util.List;
 
-public record PatchTaskResponse(String plan, List<ProposedFile> proposedFiles, String outputDirectoryPath) {
+public record PatchTaskResponse(String summary, List<ToolInvocationRecord> toolTrace, String gitDiff,
+	String repoPath) {
 }
