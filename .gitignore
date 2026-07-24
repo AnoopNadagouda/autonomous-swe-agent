@@ -1,9 +1,12 @@
 target/
-<<<<<<< HEAD
-*.iml
 .idea/
 .vscode/
-=======
+*.iml
+*.log
+.env
+.env.*
+application-local.properties
+application-local.yml
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
@@ -20,4 +23,3 @@ buildNumber.properties
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
->>>>>>> ae0586ccf80b14061a50b97bca266750a5e20d4f
