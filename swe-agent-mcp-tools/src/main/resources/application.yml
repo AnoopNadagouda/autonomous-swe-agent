@@ -1,0 +1,12 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: swe-agent-mcp-tools
+  ai:
+    mcp:
+      server:
+        name: swe-agent-mcp-tools
+        version: 1.0.0
+        protocol: STREAMABLE
