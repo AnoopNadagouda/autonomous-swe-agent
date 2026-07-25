@@ -1,105 +1,148 @@
-# Autonomous SWE Agent (Phase 2)
+# Autonomous SWE Agent (Phase 3: Event-Driven Kafka Pipeline)
 
-A Spring Boot 3.3+ / Java 17 autonomous software engineering agent that uses Groq via Spring AI and a real Model Context Protocol (MCP) tool-calling loop for repository exploration, inspection, direct code modifications, and sandboxed verification with self-correction.
+A Java 17 / Spring Boot 3.3+ autonomous software engineering platform using an event-driven Kafka pipeline, Model Context Protocol (MCP) tool integration, and Docker sandbox test execution.
 
-## Capabilities
+## System Architecture
 
-The agent autonomously resolves issues in codebases through an iterative loop:
-1. **Repository Exploration**: Explores repo files and directory structure using `list_directory` and `read_file`.
-2. **Direct Patching**: Applies changes directly to target files using `write_file`.
-3. **Sandboxed Verification**: Executes the project's test suite (e.g., `mvn test`) inside an isolated, ephemeral Docker container using `run_in_sandbox`.
-4. **Self-Correction Loop**: If tests fail, the agent analyzes the failure output, re-edits the code, and re-tests, repeating up to 3 attempts total.
-5. **Git Diff Inspection**: Captures the exact uncommitted changes using `git_diff` before finishing.
+The platform consists of four distinct components:
 
-## Architecture
+```
+                          +-------------------------+
+                          |  Client / REST API      |
+                          +------------+------------+
+                                       | POST /api/tasks (202 Accepted)
+                                       v
+                          +-------------------------+
+                          |   swe-agent             | (Orchestrator - Port 8080)
+                          |   (API & Task State)    |
+                          +------+-----------+------+
+                                 |           ^
+        TaskSubmittedEvent       |           |  TaskStatusEvent
+   (topic: task-submitted)       v           | (topic: task-status)
+                          +-------------------------+
+                          |   Apache Kafka Broker   | (Port 9092)
+                          +------------+------------+
+                                       |
+                                       v
+                          +-------------------------+
+                          |   swe-agent-worker      | (Worker Node - Port 8082)
+                          |   (Agent Loop & LLM)    |
+                          +------------+------------+
+                                       |
+                                       v MCP Tool Calls (HTTP)
+                          +-------------------------+
+                          |  swe-agent-mcp-tools    | (MCP Server - Port 8081)
+                          +------------+------------+
+                                       |
+                                       v Docker Run
+                          +-------------------------+
+                          |   Docker Sandbox        | (maven:3.9-eclipse-temurin-17)
+                          +-------------------------+
+```
 
-This system uses a **Two-Service Architecture**:
+### Components
 
-1. **`swe-agent-mcp-tools` (Port 8081)**:
-   - Sibling Spring Boot project at `./swe-agent-mcp-tools`.
-   - Acts as an MCP server using Spring AI MCP Server over Streamable HTTP protocol.
-   - Exposes tools: `list_directory`, `read_file`, `write_file`, `git_diff`, and `run_in_sandbox`.
-   - Enforces path-escape security checks on all file operations.
+1. **`apache/kafka` Broker (Port 9092)**:
+   - Handles asynchronous event streaming between Orchestrator and Worker.
+   - Topics:
+     - `swe-agent.task-submitted`: Task submissions from Orchestrator to Worker.
+     - `swe-agent.task-status`: Granular status transitions and progress updates from Worker to Orchestrator.
 
-2. **`swe-agent` (Port 8080)**:
-   - Main orchestrator application.
-   - Acts as an MCP client using Spring AI MCP Client connected to `http://localhost:8081`.
-   - Manages the multi-turn agent loop with Groq LLM (`llama-3.3-70b-versatile`).
+2. **`swe-agent` (Orchestrator - Port 8080)**:
+   - Lightweight REST API layer.
+   - Accepts task submissions via `POST /api/tasks`, publishes `TaskSubmittedEvent`, and returns HTTP `202 Accepted` immediately with a `taskId`.
+   - Consumes status updates from Kafka (`swe-agent.task-status`) and maintains in-memory status history for polling via `GET /api/tasks/{taskId}`.
 
-Both services must be running simultaneously for patch generation tasks to work.
+3. **`swe-agent-worker` (Worker Service - Port 8082)**:
+   - Decoupled worker application consuming tasks from `swe-agent.task-submitted`.
+   - Runs the autonomous agent execution loop with Groq LLM (`llama-3.3-70b-versatile`) via Spring AI.
+   - Connects to `swe-agent-mcp-tools` over HTTP MCP protocol.
+   - Emits real-time state transitions (`PLANNING`, `CODING`, `TESTING`, `COMPLETED`, `FAILED`) to Kafka.
+
+4. **`swe-agent-mcp-tools` (MCP Server - Port 8081)**:
+   - Spring Boot MCP tool server exposing repository tools: `list_directory`, `read_file`, `write_file`, `git_diff`, and `run_in_sandbox`.
+   - Executes unit tests in isolated Docker containers.
 
 ## Prerequisites
 
 - **Java 17+** and **Maven 3.8+**
+- **Docker Desktop**: Must be running for Kafka broker container and sandboxed test execution.
 - **Groq API Key**: Set via environment variable `GROQ_API_KEY`.
-- **Docker Desktop**: Must be running on the host machine for `run_in_sandbox` test execution (`maven:3.9-eclipse-temurin-17` container).
 
 ## Setup & Running
 
 ### 1. Environment Variable
-Set your Groq API key:
 ```powershell
 $env:GROQ_API_KEY="your-groq-api-key"
 ```
 
-### 2. Start MCP Tools Server (Port 8081)
-Navigate to `swe-agent-mcp-tools` and start the server:
+### 2. Start Kafka Broker (Port 9092)
 ```powershell
-cd swe-agent-mcp-tools
-mvn spring-boot:run
+docker run -d --name kafka -p 9092:9092 apache/kafka:latest
 ```
 
-### 3. Start SWE Agent Orchestrator (Port 8080)
-In the main project root directory:
+### 3. Start MCP Tools Server (Port 8081)
+In `./swe-agent-mcp-tools`:
 ```powershell
 mvn spring-boot:run
 ```
 
-## REST API Request & Response
+### 4. Start Agent Worker (Port 8082)
+In `../swe-agent-worker`:
+```powershell
+mvn spring-boot:run
+```
 
-### Request Example
-`POST /api/tasks/patch`
+### 5. Start Orchestrator (Port 8080)
+In main repository root (`swe-agent`):
+```powershell
+mvn spring-boot:run
+```
+
+## API Specification
+
+### Submit Task
+`POST /api/tasks`
+
+Request Body:
 ```json
 {
   "repoPath": "C:\\Users\\ANOOP\\Desktop\\test-repo",
-  "issueDescription": "The add method in Calculator.java returns the wrong result, it subtracts instead of adding."
+  "issueDescription": "The add method returns the wrong result, it subtracts instead of adding."
 }
 ```
 
-### Sample Response (`PatchTaskResponse`)
+Response (`202 Accepted`):
 ```json
 {
-  "summary": "Explored Calculator.java, identified subtraction bug, replaced - with +, verified with mvn test in Docker sandbox (Exit Code: 0).",
-  "toolTrace": [
-    {
-      "toolName": "list_directory",
-      "input": "{\"repoPath\":\"C:\\\\Users\\\\ANOOP\\\\Desktop\\\\test-repo\",\"relativePath\":\".\"}",
-      "output": "pom.xml\nsrc/"
-    },
-    {
-      "toolName": "read_file",
-      "input": "{\"repoPath\":\"C:\\\\Users\\\\ANOOP\\\\Desktop\\\\test-repo\",\"relativePath\":\"src/main/java/Calculator.java\"}",
-      "output": "public class Calculator {\n    public int add(int a, int b) {\n        return a - b;\n    }\n}"
-    },
-    {
-      "toolName": "write_file",
-      "input": "{\"repoPath\":\"C:\\\\Users\\\\ANOOP\\\\Desktop\\\\test-repo\",\"relativePath\":\"src/main/java/Calculator.java\",\"content\":\"public class Calculator {\\n    public int add(int a, int b) {\\n        return a + b;\\n    }\\n}\"}",
-      "output": "Successfully wrote to src/main/java/Calculator.java"
-    },
-    {
-      "toolName": "run_in_sandbox",
-      "input": "{\"repoPath\":\"C:\\\\Users\\\\ANOOP\\\\Desktop\\\\test-repo\",\"command\":\"mvn test\"}",
-      "output": "Exit Code: 0\nStdout:\n[INFO] BUILD SUCCESS..."
-    },
-    {
-      "toolName": "git_diff",
-      "input": "{\"repoPath\":\"C:\\\\Users\\\\ANOOP\\\\Desktop\\\\test-repo\"}",
-      "output": "diff --git a/src/main/java/Calculator.java b/src/main/java/Calculator.java..."
-    }
-  ],
-  "gitDiff": "diff --git a/src/main/java/Calculator.java b/src/main/java/Calculator.java\nindex 1234567..89abcdef 100644\n--- a/src/main/java/Calculator.java\n+++ b/src/main/java/Calculator.java\n@@ -2,3 +2,3 @@ public class Calculator {\n     public int add(int a, int b) {\n-        return a - b;\n+        return a + b;\n     }",
+  "taskId": "c5f94d93-128a-4f51-a209-7d8fa315b9c1",
+  "status": "PENDING"
+}
+```
+
+### Poll Task Status
+`GET /api/tasks/{taskId}`
+
+Response (`200 OK`):
+```json
+{
+  "taskId": "c5f94d93-128a-4f51-a209-7d8fa315b9c1",
   "repoPath": "C:\\Users\\ANOOP\\Desktop\\test-repo",
+  "issueDescription": "The add method returns the wrong result, it subtracts instead of adding.",
+  "currentStatus": "COMPLETED",
+  "summary": "Explored Calculator.java, identified subtraction bug, updated code, verified with mvn test in Docker sandbox.",
+  "toolTrace": [ ... ],
+  "gitDiff": "diff --git a/src/main/java/Calculator.java...",
+  "finalTestResult": "Exit Code: 0\nStdout:\n[INFO] BUILD SUCCESS",
   "attemptsMade": 1,
-  "finalTestResult": "Exit Code: 0\nStdout:\n[INFO] BUILD SUCCESS..."
+  "createdAt": 1721900000000,
+  "updatedAt": 1721900045000,
+  "history": [
+    { "status": "PENDING", "summary": "Task submitted", "timestamp": 1721900000000 },
+    { "status": "PLANNING", "summary": "Agent started exploring repository", "timestamp": 1721900002000 },
+    { "status": "CODING", "summary": "Executing tool: write_file", "timestamp": 1721900015000 },
+    { "status": "TESTING", "summary": "Executing tool: run_in_sandbox", "timestamp": 1721900025000 },
+    { "status": "COMPLETED", "summary": "Explored Calculator.java...", "timestamp": 1721900045000 }
+  ]
 }
 ```

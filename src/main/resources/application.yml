@@ -1,27 +1,21 @@
 spring:
   application:
     name: swe-agent
-  ai:
-    openai:
-      base-url: https://api.groq.com/openai
-      api-key: ${GROQ_API_KEY}
-      chat:
-        options:
-          model: llama-3.3-70b-versatile
-    mcp:
-      client:
-        enabled: true
-        type: sync
-        request-timeout: 180s
-        sse:
-          connections:
-            tools:
-              url: http://localhost:8081
-              request-timeout: 180s
-        streamable-http:
-          connections:
-            tools:
-              url: http://localhost:8081
-              request-timeout: 180s
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: swe-agent-orchestrator-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.example.sweagent.dto.TaskStatusEvent
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 server:
   port: 8080
