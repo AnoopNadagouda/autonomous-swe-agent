@@ -12,13 +12,16 @@ spring:
       client:
         enabled: true
         type: sync
+        request-timeout: 180s
         sse:
           connections:
             tools:
               url: http://localhost:8081
+              request-timeout: 180s
         streamable-http:
           connections:
             tools:
               url: http://localhost:8081
+              request-timeout: 180s
 server:
   port: 8080

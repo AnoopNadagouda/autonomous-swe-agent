@@ -16,7 +16,6 @@ public class AgentToolConfiguration {
     @Bean
     public RecordingToolCallbackProvider recordingToolCallbackProvider(
             List<McpSyncClient> mcpSyncClients, ToolTraceRecorder toolTraceRecorder) {
-        System.out.println("DEBUG: AgentToolConfiguration mcpSyncClients count = " + mcpSyncClients.size());
         return new RecordingToolCallbackProvider(mcpSyncClients, toolTraceRecorder);
     }
 

@@ -27,8 +27,11 @@ public class PatchService {
             1. Call list_directory to explore the directory structure of the repository.
             2. Call read_file to inspect the source file(s) related to the issue.
             3. Call write_file to apply the fix directly to the target file inside the repository.
-            4. Call git_diff to inspect your changes before completing the task.
-            5. Return a concise summary of the plan and resolution.
+            4. CRITICAL: After calling write_file, you MUST call run_in_sandbox with a command to run the test suite (e.g. "mvn test") to verify the fix before finishing.
+            5. If the tests fail, analyze the test failure output, reconsider your fix, call write_file again with a corrected version, and re-run run_in_sandbox ("mvn test").
+            6. Repeat this edit-and-test loop if necessary, capping your attempts at 3 attempts total.
+            7. Once tests pass (or if maximum 3 attempts are reached), call git_diff to inspect your final changes.
+            8. Return a concise summary of the plan, attempts made, and resolution.
 
             Always pass the target absolute repository path as repoPath in every tool call.
             """;
@@ -62,6 +65,14 @@ public class PatchService {
                     .content();
 
             List<ToolInvocationRecord> toolTrace = this.toolTraceRecorder.snapshot();
+
+            int attemptsMade = (int) toolTrace.stream()
+                    .filter(record -> record.toolName() != null && record.toolName().endsWith("run_in_sandbox"))
+                    .count();
+
+            String finalTestResult = this.toolTraceRecorder.findLastOutput("run_in_sandbox")
+                    .orElse("No sandbox tests executed");
+
             String gitDiff = this.toolTraceRecorder.findLastOutput("git_diff").orElse("");
             if (gitDiff.isBlank()) {
                 gitDiff = runGitDiff(repoPath);
@@ -71,7 +82,9 @@ public class PatchService {
                     assistantResponse == null ? "" : assistantResponse,
                     toolTrace,
                     gitDiff,
-                    repoPath.toString()
+                    repoPath.toString(),
+                    attemptsMade,
+                    finalTestResult
             );
         } finally {
             this.toolTraceRecorder.clear();

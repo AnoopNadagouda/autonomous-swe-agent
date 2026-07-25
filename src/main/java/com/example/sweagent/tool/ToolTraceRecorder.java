@@ -35,7 +35,7 @@ public class ToolTraceRecorder {
         }
         for (int index = trace.size() - 1; index >= 0; index--) {
             ToolInvocationRecord record = trace.get(index);
-            if (toolName.equals(record.toolName())) {
+            if (toolName.equals(record.toolName()) || (record.toolName() != null && record.toolName().endsWith(toolName))) {
                 return Optional.ofNullable(record.output());
             }
         }
