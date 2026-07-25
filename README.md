@@ -1,8 +1,18 @@
 # Autonomous SWE Agent Platform
 
+![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-Event_Driven-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
+![Model Context Protocol](https://img.shields.io/badge/MCP-Tool_Calling-8A2BE2?style=for-the-badge&logo=anthropic&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Sandboxed_Testing-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq_LLM-llama--3.3--70b-f55036?style=for-the-badge&logo=groq&logoColor=white)
+![Spring AI](https://img.shields.io/badge/Spring_AI-Agentic_Loop-00599C?style=for-the-badge&logo=spring&logoColor=white)
+![Python](https://img.shields.io/badge/Python-E2E_Testing-3776AB?style=for-the-badge&logo=python&logoColor=white)
+
 An event-driven, multi-service platform that uses Large Language Models (Groq via Spring AI), Model Context Protocol (MCP) tool integration, Apache Kafka event streaming, and isolated Docker sandboxes to autonomously explore codebases, apply patches, execute test suites, self-correct bugs, and serve real-time status history.
 
 ---
+
 
 ## System Architecture
 
