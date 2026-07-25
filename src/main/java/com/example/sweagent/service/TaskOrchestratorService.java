@@ -6,6 +6,7 @@ import com.example.sweagent.dto.TaskStatusEvent;
 import com.example.sweagent.dto.TaskSubmittedEvent;
 import com.example.sweagent.exception.RepoPathNotFoundException;
 import com.example.sweagent.model.TaskRecord;
+import com.example.sweagent.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -25,7 +25,7 @@ public class TaskOrchestratorService {
 
     private static final String TOPIC_TASK_SUBMITTED = "swe-agent.task-submitted";
 
-    private final ConcurrentHashMap<String, TaskRecord> taskStore = new ConcurrentHashMap<>();
+    private final TaskRepository taskRepository;
     private final KafkaTemplate<String, TaskSubmittedEvent> kafkaTemplate;
 
     public TaskRecord submitTask(TaskCreateRequest request) {
@@ -39,7 +39,7 @@ public class TaskOrchestratorService {
 
         String taskId = UUID.randomUUID().toString();
         TaskRecord taskRecord = new TaskRecord(taskId, repoPath.toString(), request.issueDescription());
-        taskStore.put(taskId, taskRecord);
+        taskRecord = taskRepository.save(taskRecord);
 
         TaskSubmittedEvent submittedEvent = new TaskSubmittedEvent(taskId, repoPath.toString(), request.issueDescription());
         kafkaTemplate.send(TOPIC_TASK_SUBMITTED, taskId, submittedEvent);
@@ -49,7 +49,7 @@ public class TaskOrchestratorService {
     }
 
     public Optional<TaskRecord> getTask(String taskId) {
-        return Optional.ofNullable(taskStore.get(taskId));
+        return taskRepository.findById(taskId);
     }
 
     @KafkaListener(topics = "swe-agent.task-status", groupId = "swe-agent-orchestrator-group")
@@ -58,8 +58,9 @@ public class TaskOrchestratorService {
             return;
         }
         log.info("Received TaskStatusEvent: taskId={}, status={}", event.taskId(), event.status());
-        TaskRecord taskRecord = taskStore.get(event.taskId());
-        if (taskRecord != null) {
+        Optional<TaskRecord> optionalTask = taskRepository.findById(event.taskId());
+        if (optionalTask.isPresent()) {
+            TaskRecord taskRecord = optionalTask.get();
             taskRecord.setCurrentStatus(event.status());
             if (event.summary() != null && !event.summary().isBlank()) {
                 taskRecord.setSummary(event.summary());
@@ -82,6 +83,7 @@ public class TaskOrchestratorService {
                     event.summary(),
                     event.timestamp() > 0 ? event.timestamp() : System.currentTimeMillis()
             ));
+            taskRepository.save(taskRecord);
         } else {
             log.warn("Received TaskStatusEvent for unknown taskId={}", event.taskId());
         }

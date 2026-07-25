@@ -1,6 +1,17 @@
 spring:
   application:
     name: swe-agent
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:sweagent}
+    username: ${DB_USER:sweagent}
+    password: ${DB_PASS:sweagent}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -19,3 +30,11 @@ spring:
         spring.json.add.type.headers: false
 server:
   port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
