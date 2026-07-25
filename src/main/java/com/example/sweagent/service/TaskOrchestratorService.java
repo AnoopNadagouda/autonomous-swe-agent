@@ -90,15 +90,16 @@ public class TaskOrchestratorService {
     }
 
     private Path validateRepoPath(String repoPathValue) {
+        if (repoPathValue == null || repoPathValue.isBlank()) {
+            throw new RepoPathNotFoundException("repoPath is required");
+        }
+        boolean isWindowsAbsolute = repoPathValue.matches("^[a-zA-Z]:[\\\\/].*");
         Path repoPath = Path.of(repoPathValue);
-        if (!repoPath.isAbsolute()) {
+        if (!repoPath.isAbsolute() && !isWindowsAbsolute) {
             throw new RepoPathNotFoundException("repoPath must be an absolute path: " + repoPath);
         }
-        if (!Files.exists(repoPath)) {
+        if (!isWindowsAbsolute && !Files.exists(repoPath)) {
             throw new RepoPathNotFoundException("repoPath does not exist: " + repoPath);
-        }
-        if (!Files.isDirectory(repoPath)) {
-            throw new RepoPathNotFoundException("repoPath is not a directory: " + repoPath);
         }
         return repoPath;
     }
