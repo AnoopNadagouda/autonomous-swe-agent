@@ -57,7 +57,8 @@ public class TaskOrchestratorService {
         if (event == null || event.taskId() == null) {
             return;
         }
-        log.info("Received TaskStatusEvent: taskId={}, status={}", event.taskId(), event.status());
+        log.info("Received TaskStatusEvent: taskId={}, status={}, toolTraceSize={}",
+                event.taskId(), event.status(), event.toolTrace() == null ? 0 : event.toolTrace().size());
         Optional<TaskRecord> optionalTask = taskRepository.findById(event.taskId());
         if (optionalTask.isPresent()) {
             TaskRecord taskRecord = optionalTask.get();

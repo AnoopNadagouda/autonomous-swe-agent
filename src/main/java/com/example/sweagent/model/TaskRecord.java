@@ -7,17 +7,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Data
 @NoArgsConstructor
 @Entity
 @Table(name = "tasks")
 public class TaskRecord {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
 
     @Id
     private String taskId;
@@ -71,6 +73,16 @@ public class TaskRecord {
         serializeLists();
     }
 
+    public void setToolTrace(List<ToolInvocationRecord> toolTrace) {
+        this.toolTrace = toolTrace;
+        serializeLists();
+    }
+
+    public void setHistory(List<StatusTransition> history) {
+        this.history = history;
+        serializeLists();
+    }
+
     @PrePersist
     @PreUpdate
     public void serializeLists() {
@@ -82,7 +94,7 @@ public class TaskRecord {
                 this.historyJson = MAPPER.writeValueAsString(history);
             }
         } catch (Exception e) {
-            // fallback
+            log.error("Failed to serialize lists in TaskRecord taskId={}", taskId, e);
         }
     }
 
@@ -96,7 +108,7 @@ public class TaskRecord {
                 this.history = MAPPER.readValue(historyJson, new TypeReference<List<StatusTransition>>() {});
             }
         } catch (Exception e) {
-            // fallback
+            log.error("Failed to deserialize lists in TaskRecord taskId={}", taskId, e);
         }
     }
 }
