@@ -75,26 +75,40 @@ public class TaskRecord {
 
     public void setToolTrace(List<ToolInvocationRecord> toolTrace) {
         this.toolTrace = toolTrace;
-        serializeLists();
+        if (toolTrace != null) {
+            try {
+                this.toolTraceJson = MAPPER.writeValueAsString(toolTrace);
+            } catch (Exception e) {
+                log.error("Failed to serialize toolTrace in TaskRecord taskId={}", taskId, e);
+            }
+        }
     }
 
     public void setHistory(List<StatusTransition> history) {
         this.history = history;
-        serializeLists();
+        if (history != null) {
+            try {
+                this.historyJson = MAPPER.writeValueAsString(history);
+            } catch (Exception e) {
+                log.error("Failed to serialize history in TaskRecord taskId={}", taskId, e);
+            }
+        }
     }
 
-    @PrePersist
-    @PreUpdate
     public void serializeLists() {
-        try {
-            if (toolTrace != null) {
+        if (toolTrace != null) {
+            try {
                 this.toolTraceJson = MAPPER.writeValueAsString(toolTrace);
+            } catch (Exception e) {
+                log.error("Failed to serialize toolTrace in TaskRecord taskId={}", taskId, e);
             }
-            if (history != null) {
+        }
+        if (history != null) {
+            try {
                 this.historyJson = MAPPER.writeValueAsString(history);
+            } catch (Exception e) {
+                log.error("Failed to serialize history in TaskRecord taskId={}", taskId, e);
             }
-        } catch (Exception e) {
-            log.error("Failed to serialize lists in TaskRecord taskId={}", taskId, e);
         }
     }
 
