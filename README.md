@@ -6,7 +6,7 @@
 ![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-Event_Driven-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
 ![Model Context Protocol](https://img.shields.io/badge/MCP-Tool_Calling-8A2BE2?style=for-the-badge&logo=anthropic&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Sandboxed_Testing-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Groq](https://img.shields.io/badge/Groq_LLM-llama--3.3--70b-f55036?style=for-the-badge&logo=groq&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq_LLM-gpt--oss--120b-f55036?style=for-the-badge&logo=groq&logoColor=white)
 ![Spring AI](https://img.shields.io/badge/Spring_AI-Agentic_Loop-00599C?style=for-the-badge&logo=spring&logoColor=white)
 
 An event-driven, multi-service platform that uses Large Language Models (Groq via Spring AI), Model Context Protocol (MCP) tool integration, Apache Kafka event streaming, PostgreSQL persistence, and isolated Docker sandboxes to autonomously explore codebases, apply patches, execute test suites, self-correct bugs, and serve real-time status history.
@@ -42,7 +42,7 @@ The system is built on a **Decoupled Microservice Architecture** with event-driv
 ┌─────────────────────────────────────────────────────────────┐
 │  swe-agent-worker (Autonomous Worker Node - Port 8082)      │
 │  - Consumes tasks & manages Spring AI ChatClient loop       │
-│  - Interfaces with Groq LLM (llama-3.3-70b-versatile)       │
+│  - Interfaces with Groq LLM (openai/gpt-oss-120b)          │
 │  - Emits real-time state transitions to Kafka               │
 │  - Publishes unhandled errors to DLQ (task-dlq)             │
 └──────────────┬──────────────────────────────────────────────┘
@@ -232,3 +232,9 @@ If running services natively outside Docker Compose:
   - **Dead-Letter Queue (DLQ)**: Added uncaught exception counter and automatic routing to Kafka topic `swe-agent.task-dlq` in `swe-agent-worker`.
   - **Observability & Health Gates**: Added `spring-boot-starter-actuator` and Micrometer Prometheus metrics across all microservices exposing `/actuator/health` and `/actuator/prometheus`.
   - **Containerization & Deployment**: Created multi-stage Dockerfiles for all microservices, local orchestration via `docker-compose.yml`, Render deployment blueprint (`render.yaml`), and the React-based `swe-agent-dashboard` frontend.
+  - **Reliability & Self-Correction Hardening**:
+    - **Multi-Turn Agent Loop Fix**: Resolved early loop exit bug where worker terminated after a single tool call without executing `write_file` or running test suites.
+    - **Hallucinated Tool-Call Recovery**: Implemented automated detection and corrective retries for model hallucinations across both narrated-text format and pseudo-XML (`<function=...`) syntax.
+    - **Hard Completion Guard**: Enforced strict condition requiring `write_file` and a passing `run_in_sandbox` test before marking tasks `COMPLETED`.
+    - **Groq Rate-Limit & Backoff**: Added exponential backoff and automatic pause/retry handling for Groq TPM (tokens per minute) rate limits and immediate failover on TPD quota limits.
+    - **Hard 3-Attempt Cap Enforcement**: Enforced strict 3-attempt cap for test self-corrections, marking tasks `FAILED` with explicit error summaries when exceeding maximum attempts.

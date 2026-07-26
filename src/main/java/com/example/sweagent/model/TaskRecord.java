@@ -95,6 +95,8 @@ public class TaskRecord {
         }
     }
 
+    @PrePersist
+    @PreUpdate
     public void serializeLists() {
         if (toolTrace != null) {
             try {
