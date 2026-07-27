@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +29,7 @@ public class TaskOrchestratorService {
     private final TaskRepository taskRepository;
     private final KafkaTemplate<String, TaskSubmittedEvent> kafkaTemplate;
 
+    @Transactional
     public TaskRecord submitTask(TaskCreateRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Request body is required");
@@ -48,12 +50,15 @@ public class TaskOrchestratorService {
         return taskRecord;
     }
 
+    @Transactional(readOnly = true)
     public Optional<TaskRecord> getTask(String taskId) {
         return taskRepository.findById(taskId);
     }
 
+    @Transactional
     @KafkaListener(topics = "swe-agent.task-status", groupId = "swe-agent-orchestrator-group")
     public void handleTaskStatusEvent(TaskStatusEvent event) {
+
         if (event == null || event.taskId() == null) {
             return;
         }
